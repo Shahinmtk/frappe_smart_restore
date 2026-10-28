@@ -106,25 +106,36 @@ select_site() {
 detect_backup() {
     local work_dir="$1"
     local latest_db
-    latest_db=$(ls -1 "$work_dir"/*-database.sql.gz "$work_dir"/*-database.sql 2>/dev/null | sort -r | head -n 1)
-
+    
+    # Catch standard Frappe backups OR the exact custom database.sql.gz
+    latest_db=$(ls -1 "$work_dir"/*-database.sql.gz "$work_dir"/*-database.sql "$work_dir"/database.sql.gz 2>/dev/null | sort -r | head -n 1)
+    
     if [[ -z "$latest_db" ]]; then
         log "ERROR" "No database backup found."
         exit 1
     fi
 
     local timestamp
-    if [[ "$latest_db" =~ ([0-9]{8}_[0-9]{6}) ]]; then
-        timestamp="${BASH_REMATCH[1]}"
-    else
-        log "ERROR" "Cannot extract timestamp from $latest_db"
-        exit 1
-    fi
-
     local public_file
     local private_file
-    public_file=$(ls -1 "$work_dir"/*"${timestamp}"*-public-files.tar* "$work_dir"/*"${timestamp}"*-files.tgz 2>/dev/null | head -n 1 || true)
-    private_file=$(ls -1 "$work_dir"/*"${timestamp}"*-private-files.tar* "$work_dir"/*"${timestamp}"*-private-files.tgz 2>/dev/null | head -n 1 || true)
+
+    # If it has a standard timestamp, extract it and find matching files
+    if [[ "$latest_db" =~ ([0-9]{8}_[0-9]{6}) ]]; then
+        timestamp="${BASH_REMATCH[1]}"
+        public_file=$(ls -1 "$work_dir"/*"${timestamp}"*-public-files.tar* "$work_dir"/*"${timestamp}"*-files.tar* "$work_dir"/*"${timestamp}"*-files.tgz 2>/dev/null | head -n 1 || true)
+        private_file=$(ls -1 "$work_dir"/*"${timestamp}"*-private-files.tar* "$work_dir"/*"${timestamp}"*-private-files.tgz 2>/dev/null | head -n 1 || true)
+    else
+        # If no timestamp exists (e.g., exact 'database.sql.gz'), assign a generic name
+        timestamp="custom_backup"
+    fi
+
+    # Fallback: If public/private files still aren't found, look for exact public.tgz / private.tgz
+    if [[ -z "$public_file" || ! -f "$public_file" ]]; then
+        public_file=$(ls -1 "$work_dir"/public.tgz 2>/dev/null | head -n 1 || true)
+    fi
+    if [[ -z "$private_file" || ! -f "$private_file" ]]; then
+        private_file=$(ls -1 "$work_dir"/private.tgz 2>/dev/null | head -n 1 || true)
+    fi
 
     echo "$latest_db|$public_file|$private_file|$timestamp"
 }
