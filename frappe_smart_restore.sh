@@ -5,7 +5,7 @@
 set -e
 set -o pipefail
 
-LOG_FILE="restore_$(date +%Y%m%d_%H%M%S).log"
+#LOG_FILE="$PWD/restore_$(date +%Y%m%d_%H%M%S).log"
 
 # --- UX / UI Colors ---
 C_RED='\033[1;31m'
